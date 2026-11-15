@@ -3,10 +3,9 @@ import json
 url = "https://gamma-api.polymarket.com/events"
 
 params = {
-    "limit": 3,
+    "limit": 1,
     "active": True,
-    "closed": False,
-
+    "closed": False
 }
 response = requests.get(url, params=params)
 

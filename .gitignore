@@ -1,1 +1,3 @@
 venv/
+utils/test.py
+utils/query_params.txt
