@@ -1,6 +1,8 @@
 import requests
 import json
+from datetime import datetime, timezone, timedelta
 url = "https://gamma-api.polymarket.com/events"
+max_date = (datetime.now(timezone.utc) + timedelta(days=60)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 params = {
     "limit": 100,
@@ -9,6 +11,8 @@ params = {
     "negRisk": True,
     "order": "liquidity",
     "ascending": False,
+    "exclude_tag_id": 1,
+    "end_date_max": max_date,
     "offset": 0
 }
 
@@ -45,7 +49,11 @@ while enough_liquidity:
                 if not prices:
                     continue
 
-                if (market.get("liquidityNum") or 0) < 1000:
+                if any(
+                    [(market.get("liquidityNum") or 0) < 1000,
+                    (market.get("spread") or 1)  > 0.03,
+                    (market.get("bestBid") or 0) < 0.001]
+                ):
                     break
 
                 sum_yes += float(prices[0])
