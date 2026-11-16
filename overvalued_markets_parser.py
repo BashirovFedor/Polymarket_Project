@@ -3,35 +3,54 @@ import json
 url = "https://gamma-api.polymarket.com/events"
 
 params = {
-    "limit": 50,
+    "limit": 100,
     "active": True,
     "closed": False,
-    "negRisk": True
+    "negRisk": True,
+    "order": "liquidity",
+    "ascending": False,
+    "offset": 0
 }
-response = requests.get(url, params=params)
 
-if response.status_code != 200:
-    print(f"Ошибка! {response.status_code}: {response.text}")
+enough_liquidity = True
+while enough_liquidity:
+    response = requests.get(url, params=params)
 
-else:
-    data = response.json()
+    if response.status_code != 200:
+        print(f"Ошибка! {response.status_code}: {response.text}")
+        break
 
-    for event in data:
-        sum_yes = 0
+    else:
+        data = response.json()
 
-        for market in event["markets"]:
-            if any([not market.get("acceptingOrders"), market.get("umaResolutionStatus"), not market.get("negRisk")]):
-                continue
+        if not data:
+            break
 
-            raw_prices = market.get("outcomePrices")
-            if not raw_prices:
-                continue
+        for event in data:
+            if (event.get("liquidity") or 0) < 1000:
+                enough_liquidity = False
+                break
 
-            prices = json.loads(raw_prices)
-            if not prices:
-                continue
+            sum_yes = 0
+            for market in event["markets"]:
+                
+                if any([not market.get("acceptingOrders"), market.get("umaResolutionStatus"), not market.get("negRisk")]):
+                    continue
 
-            sum_yes += float(prices[0])
+                raw_prices = market.get("outcomePrices")
+                if not raw_prices:
+                    continue
 
-        if sum_yes > 1:
-            print(f"https://polymarket.com/event/{event["slug"]} | Сумма Yes: {sum_yes:.4f}")
+                prices = json.loads(raw_prices)
+                if not prices:
+                    continue
+
+                if (market.get("liquidityNum") or 0) < 1000:
+                    break
+
+                sum_yes += float(prices[0])
+            else:
+                if sum_yes > 1:
+                    print(f"https://polymarket.com/event/{event["slug"]} | Сумма Yes: {sum_yes:.4f}")
+    
+    params["offset"] += 100
