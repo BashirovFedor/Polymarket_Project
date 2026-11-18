@@ -1,6 +1,7 @@
 import requests
 import json
 from datetime import datetime, timezone, timedelta
+
 url = "https://gamma-api.polymarket.com/events"
 max_date = (datetime.now(timezone.utc) + timedelta(days=60)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -16,8 +17,9 @@ params = {
     "offset": 0
 }
 
+event_list = []
 enough_liquidity = True
-while enough_liquidity:
+while enough_liquidity and params["offset"] <= 1000:
     response = requests.get(url, params=params)
 
     if response.status_code != 200:
@@ -26,7 +28,7 @@ while enough_liquidity:
 
     else:
         data = response.json()
-
+        
         if not data:
             break
 
@@ -35,7 +37,11 @@ while enough_liquidity:
                 enough_liquidity = False
                 break
 
-            sum_yes = 0
+            if not event.get("endDate"):
+                continue
+
+            sum_no = 0
+            valid_market_number = 0
             for market in event["markets"]:
                 
                 if any([not market.get("acceptingOrders"), market.get("umaResolutionStatus"), not market.get("negRisk")]):
@@ -56,9 +62,15 @@ while enough_liquidity:
                 ):
                     break
 
-                sum_yes += float(prices[0])
+                sum_no += 1 - market["bestBid"]
+                valid_market_number += 1
             else:
-                if sum_yes > 1:
-                    print(f"https://polymarket.com/event/{event["slug"]} | Сумма Yes: {sum_yes:.4f}")
-    
+                if sum_no < valid_market_number - 1:
+                    profit = (valid_market_number - 1 - sum_no) / sum_no * 100
+                    apr = profit / ((datetime.fromisoformat(event["endDate"]) - datetime.now(timezone.utc)).total_seconds() / 86400) * 365
+                    if apr >= 20:
+                        event_list.append([event["slug"], apr])
     params["offset"] += 100
+
+event_list.sort(key=lambda x: (x[1], x[0]), reverse=True)
+print(*(f"https://polymarket.com/event/{slug} | APR: {apr:.2f}%" for slug, apr in event_list), sep='\n')
